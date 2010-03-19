@@ -1,0 +1,116 @@
+#!/usr/bin/python
+
+# Copyright (c) 2010 Peter Eisentraut
+# See LICENSE file for conditions.
+
+"""plpylint runs pylint over PL/Python functions in a PostgreSQL
+database.
+"""
+
+__version__ = "plpylint 0.0.0"
+
+import os
+import tempfile
+import shutil
+from optparse import OptionParser
+
+import psycopg2
+import psycopg2.extras as pe
+
+
+BOILERPLATE = """# pylint: disable-msg=C0111
+GD = {}
+SD = {}
+import plpy # pylint: disable-msg=W0611
+args = list() # pylint: disable-msg=C0103
+"""
+
+FAKE_PLPY = """
+# pylint: disable-msg=C0111
+
+def debug(*_args):
+    pass
+
+def info(*_args):
+    pass
+
+def log(*_args):
+    pass
+
+def notice(*_args):
+    pass
+
+def warning(*_args):
+    pass
+
+def error(*_args):
+    pass
+
+def prepare(*_args):
+    class Plan: # pylint: disable-msg=R0903
+        def __init__(self):
+            pass
+        def status(self):
+            pass
+    return Plan()
+
+def execute(*_args):
+    class Result:
+        def __init__(self):
+            pass
+        def __getitem__(self, _key):
+            pass
+        def status(self):
+            pass
+        def nrows(self):
+            pass
+    return Result()
+
+SPIError = Exception() # pylint: disable-msg=C0103
+"""
+
+
+def main():
+    optparser = OptionParser(version = __version__)
+    optparser.add_option('-c', '--connect', dest = 'connect',
+                         help = "database connection parameters")
+    (options, args) = optparser.parse_args()
+    conn = psycopg2.connect(options.connect)
+    cursor = conn.cursor(cursor_factory = pe.RealDictCursor)
+    cursor.execute("""
+SELECT oid,
+       proname,
+       prosrc,
+       proargnames,
+       (prorettype = 'trigger'::regtype) AS is_trigger
+FROM pg_proc
+WHERE prolang IN (SELECT oid FROM pg_language WHERE lanname LIKE 'plpython%u')
+""")
+    try:
+        tmpd = tempfile.mkdtemp(prefix = 'plpylint')
+        outfile = open(tmpd + '/plpy.py', 'w')
+        outfile.write(FAKE_PLPY)
+        outfile.close()
+        maxargs = 0
+        for row in cursor.fetchall():
+            outfile = open(tmpd + '/%s_%d.py' % (row['proname'], row['oid']), 'w')
+            mangled_source = ''
+            if row['proargnames']:
+                maxargs = max(maxargs, len(row['proargnames']))
+                for proarg in row['proargnames']:
+                    mangled_source += "%s = None # pylint: disable-msg=C0103\n" % proarg
+            mangled_source += "def __plpy_%s_%d(): # pylint: disable-msg=C0103\n" % (row['proname'], row['oid'])
+            mangled_source += '\n'.join(["    " + line for line in row['prosrc'].splitlines()])
+            outfile.write(BOILERPLATE)
+            if row['is_trigger']:
+                outfile.write("TD = {}\n")
+            outfile.write(mangled_source)
+            outfile.close()
+        os.system("cd " + tmpd + " && pylint " + ' '.join(args) + " --min-similarity-lines=%d *.py" % (4 + maxargs))
+    finally:
+        if tmpd:
+            shutil.rmtree(tmpd)
+
+
+if __name__ == '__main__':
+    main()

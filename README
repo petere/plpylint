@@ -1,0 +1,1 @@
+plpylint runs pylint over PL/Python functions in a PostgreSQL database.
