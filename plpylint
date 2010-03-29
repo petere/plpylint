@@ -7,8 +7,6 @@
 database.
 """
 
-__version__ = "plpylint 0.0.0"
-
 import os
 import tempfile
 import shutil
