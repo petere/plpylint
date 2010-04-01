@@ -69,7 +69,7 @@ SPIError = Exception() # pylint: disable-msg=C0103
 
 
 def main():
-    optparser = OptionParser(version = __version__)
+    optparser = OptionParser()
     optparser.add_option('-c', '--connect', dest = 'connect',
                          help = "database connection parameters")
     (options, args) = optparser.parse_args()
