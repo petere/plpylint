@@ -7,7 +7,7 @@ def read(fname):
 
 setup(
     name = "plpylint",
-    version = "0.1",
+    version = '0.1.1',
     author = "Peter Eisentraut",
     author_email = "peter@eisentraut.org",
     description = ("runs pylint over PostgreSQL PL/Python functions"),
