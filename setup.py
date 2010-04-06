@@ -7,7 +7,7 @@ def read(fname):
 
 setup(
     name = "plpylint",
-    version = '0.1.1',
+    version = '0.1.2',
     author = "Peter Eisentraut",
     author_email = "peter@eisentraut.org",
     description = ("runs pylint over PostgreSQL PL/Python functions"),
@@ -23,5 +23,5 @@ setup(
         "License :: OSI Approved :: MIT License",
         "Topic :: Software Development :: Quality Assurance",
     ],
-    install_requires = ['psycopg2'],
+    install_requires = ['psycopg2', 'pylint'],
 )
